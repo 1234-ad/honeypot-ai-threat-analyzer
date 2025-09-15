@@ -1,0 +1,228 @@
+# Honeypot AI Threat Analyzer Configuration
+
+# Database Configuration
+database:
+  type: "postgresql"
+  host: "localhost"
+  port: 5432
+  name: "honeypot_db"
+  user: "honeypot_user"
+  password: "secure_password"
+  pool_size: 10
+  max_overflow: 20
+
+# Honeypot Configuration
+honeypots:
+  ssh:
+    enabled: true
+    port: 2222
+    host: "0.0.0.0"
+    max_connections: 100
+    session_timeout: 300
+    log_commands: true
+    fake_filesystem: true
+    
+  http:
+    enabled: true
+    port: 8080
+    host: "0.0.0.0"
+    max_connections: 50
+    serve_fake_content: true
+    log_requests: true
+    
+  ftp:
+    enabled: true
+    port: 2121
+    host: "0.0.0.0"
+    max_connections: 30
+    allow_anonymous: true
+    fake_files: true
+    
+  telnet:
+    enabled: true
+    port: 2323
+    host: "0.0.0.0"
+    max_connections: 20
+    session_timeout: 180
+
+# AI/ML Configuration
+ai:
+  models_dir: "models"
+  training:
+    retrain_interval: 3600  # seconds
+    min_training_samples: 100
+    test_size: 0.2
+    
+  threat_scoring:
+    base_score: 50
+    max_score: 100
+    reputation_weight: 0.3
+    frequency_weight: 0.2
+    
+  anomaly_detection:
+    contamination: 0.1
+    algorithm: "isolation_forest"
+    
+  classification:
+    algorithm: "ensemble"  # random_forest, neural_network, ensemble
+    n_estimators: 100
+    hidden_layers: [100, 50]
+
+# Dashboard Configuration
+dashboard:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8080
+  secret_key: "your-secret-key-here"
+  update_interval: 30  # seconds
+  max_attack_history: 10000
+  
+  features:
+    real_time_updates: true
+    threat_map: true
+    attack_timeline: true
+    ml_insights: true
+
+# Data Collection
+data_collection:
+  log_level: "INFO"
+  max_log_size: "100MB"
+  log_rotation: 7  # days
+  
+  collectors:
+    file_logger:
+      enabled: true
+      path: "logs/attacks.log"
+      format: "json"
+      
+    database_logger:
+      enabled: true
+      batch_size: 100
+      flush_interval: 10  # seconds
+      
+    syslog:
+      enabled: false
+      host: "localhost"
+      port: 514
+
+# Threat Intelligence
+threat_intelligence:
+  enabled: true
+  
+  sources:
+    virustotal:
+      enabled: false
+      api_key: "your-virustotal-api-key"
+      rate_limit: 4  # requests per minute
+      
+    abuseipdb:
+      enabled: false
+      api_key: "your-abuseipdb-api-key"
+      confidence_threshold: 75
+      
+    custom_feeds:
+      enabled: true
+      feeds:
+        - url: "https://example.com/threat-feed.json"
+          format: "json"
+          update_interval: 3600
+
+# Security Settings
+security:
+  encryption:
+    enabled: true
+    algorithm: "AES-256"
+    key_rotation: 86400  # seconds
+    
+  access_control:
+    dashboard_auth: false
+    api_auth: false
+    allowed_ips: []  # empty = allow all
+    
+  isolation:
+    network_isolation: true
+    container_isolation: false
+    chroot_jail: true
+
+# Monitoring & Alerting
+monitoring:
+  enabled: true
+  
+  metrics:
+    prometheus:
+      enabled: false
+      port: 9090
+      
+    internal:
+      enabled: true
+      retention: 30  # days
+      
+  alerting:
+    enabled: true
+    
+    rules:
+      high_threat_score:
+        threshold: 80
+        action: "log"  # log, email, webhook
+        
+      attack_frequency:
+        threshold: 100  # attacks per hour
+        action: "log"
+        
+      new_attack_type:
+        enabled: true
+        action: "log"
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+  handlers:
+    console:
+      enabled: true
+      level: "INFO"
+      
+    file:
+      enabled: true
+      level: "DEBUG"
+      path: "logs/honeypot.log"
+      max_size: "50MB"
+      backup_count: 5
+      
+    syslog:
+      enabled: false
+      host: "localhost"
+      port: 514
+
+# Performance Settings
+performance:
+  max_concurrent_connections: 1000
+  connection_timeout: 30
+  read_timeout: 10
+  write_timeout: 10
+  
+  memory:
+    max_memory_usage: "1GB"
+    gc_threshold: 0.8
+    
+  cpu:
+    max_cpu_usage: 80  # percentage
+    thread_pool_size: 10
+
+# Development Settings
+development:
+  debug: false
+  auto_reload: false
+  profiling: false
+  
+  testing:
+    mock_attacks: false
+    attack_rate: 10  # per minute
+    
+  simulation:
+    enabled: false
+    scenarios:
+      - "brute_force_ssh"
+      - "web_vulnerability_scan"
+      - "malware_download"
