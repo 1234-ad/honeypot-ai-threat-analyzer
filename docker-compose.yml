@@ -1,0 +1,187 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  database:
+    image: postgres:15-alpine
+    container_name: honeypot-db
+    environment:
+      POSTGRES_DB: honeypot_db
+      POSTGRES_USER: honeypot_user
+      POSTGRES_PASSWORD: secure_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - honeypot-network
+    restart: unless-stopped
+
+  # Redis for caching and session storage
+  redis:
+    image: redis:7-alpine
+    container_name: honeypot-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - honeypot-network
+    restart: unless-stopped
+
+  # Main Honeypot Application
+  honeypot-analyzer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: honeypot-analyzer
+    depends_on:
+      - database
+      - redis
+    environment:
+      - DATABASE_URL=postgresql://honeypot_user:secure_password@database:5432/honeypot_db
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONPATH=/app/src
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./models:/app/models
+      - honeypot_data:/app/data
+    ports:
+      # Honeypot ports
+      - "2222:2222"  # SSH Honeypot
+      - "8080:8080"  # HTTP Honeypot
+      - "2121:2121"  # FTP Honeypot
+      - "2323:2323"  # Telnet Honeypot
+      # Dashboard port
+      - "8000:8000"  # Dashboard
+    networks:
+      - honeypot-network
+    restart: unless-stopped
+    command: python src/main.py --config config/docker.yaml
+
+  # Dashboard (separate container for scaling)
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    container_name: honeypot-dashboard
+    depends_on:
+      - database
+      - redis
+      - honeypot-analyzer
+    environment:
+      - DATABASE_URL=postgresql://honeypot_user:secure_password@database:5432/honeypot_db
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
+    ports:
+      - "3000:3000"
+    networks:
+      - honeypot-network
+    restart: unless-stopped
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: honeypot-nginx
+    depends_on:
+      - dashboard
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - honeypot-network
+    restart: unless-stopped
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: honeypot-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - honeypot-network
+    restart: unless-stopped
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: honeypot-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    ports:
+      - "3001:3000"
+    networks:
+      - honeypot-network
+    restart: unless-stopped
+
+  # ELK Stack for log analysis
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.0
+    container_name: honeypot-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - honeypot-network
+    restart: unless-stopped
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.8.0
+    container_name: honeypot-logstash
+    depends_on:
+      - elasticsearch
+    volumes:
+      - ./elk/logstash/pipeline:/usr/share/logstash/pipeline
+      - ./logs:/app/logs:ro
+    ports:
+      - "5044:5044"
+    networks:
+      - honeypot-network
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.8.0
+    container_name: honeypot-kibana
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    networks:
+      - honeypot-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  honeypot_data:
+  prometheus_data:
+  grafana_data:
+  elasticsearch_data:
+
+networks:
+  honeypot-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
